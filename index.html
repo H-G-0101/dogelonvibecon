@@ -3322,19 +3322,38 @@ const Audio={
   modalOpen(){if(!this.ready)return;this.woosh();},
   modalClose(){if(!this.ready)return;this.beep(440,0.04,'sine',0.05);},
   // ===== TEMA EXCLUSIVO DA HOME =====
-  startMenuMusic(){
-    // Nunca pode tocar durante gameplay.
-    if(gameRunning)return;
+  // ===== V93 — HOME MUSIC: UNLOCK ROBUSTO EM TOUCH / MOBILE =====
+  // VALIDADO / NÃO REGREDIR:
+  // - o elemento HTMLAudio é preparado antes do primeiro gesto;
+  // - play() é chamado diretamente dentro do gesto do usuário;
+  // - se o navegador rejeitar o primeiro toque, NÃO removemos o unlock:
+  //   o próximo toque tenta novamente;
+  // - não altera música de gameplay, SFX, volumes ou lógica de performance.
+  prepareMenuMusic(){
     try{
       if(!this.menuMusicEl){
         this.menuMusicEl=new window.Audio(MENU_THEME_SRC);
         this.menuMusicEl.preload='auto';
         this.menuMusicEl.loop=true;
+        this.menuMusicEl.playsInline=true;
+        this.menuMusicEl.setAttribute('playsinline','');
+        this.menuMusicEl.setAttribute('webkit-playsinline','');
+        this.menuMusicEl.load();
       }
-      this.menuMusicEl.volume=Math.max(0,Math.min(1,0.72*settings.volMaster*settings.volMusic));
-      const p=this.menuMusicEl.play();
-      if(p&&typeof p.catch==='function')p.catch(()=>{});
-    }catch(e){}
+      return this.menuMusicEl;
+    }catch(e){return null;}
+  },
+  startMenuMusic(){
+    // Nunca pode tocar durante gameplay.
+    if(gameRunning)return Promise.resolve(false);
+    try{
+      const el=this.prepareMenuMusic();
+      if(!el)return Promise.resolve(false);
+      el.volume=Math.max(0,Math.min(1,0.72*settings.volMaster*settings.volMusic));
+      const p=el.play();
+      if(p&&typeof p.then==='function')return p.then(()=>true).catch(()=>false);
+      return Promise.resolve(true);
+    }catch(e){return Promise.resolve(false);}
   },
   stopMenuMusic(reset=true){
     if(!this.menuMusicEl)return;
@@ -13748,20 +13767,38 @@ function init(){
   });
   // Initial orientation check
   checkOrientation();
-  // Init audio on first interaction.
-  // Browsers block autoplay before interaction, so the menu theme begins
-  // on the first click/touch/key while the user is still on the Home.
+  // ===== V93 — HOME MUSIC NO PRIMEIRO TOQUE =====
+  // Prepara o MP3 agora, sem tocar. Em mobile o play só é liberado dentro
+  // de um gesto real do usuário; por isso o unlock roda em CAPTURE e em
+  // pointerdown/touchstart, antes de handlers de botões mudarem de tela.
+  Audio.prepareMenuMusic();
+  let homeAudioUnlocked=false;
+  const removeHomeAudioUnlock=()=>{
+    document.removeEventListener('pointerdown',initAudio,true);
+    document.removeEventListener('touchstart',initAudio,true);
+    document.removeEventListener('click',initAudio,true);
+    document.removeEventListener('keydown',initAudio,true);
+  };
   const initAudio=()=>{
     Audio.init();
+    if(Audio.ctx&&Audio.ctx.state==='suspended'){
+      try{Audio.ctx.resume().catch(()=>{});}catch(e){}
+    }
     const menu=document.getElementById('menu-screen');
-    if(!gameRunning&&menu&&menu.style.display!=='none')Audio.startMenuMusic();
-    document.removeEventListener('click',initAudio);
-    document.removeEventListener('touchstart',initAudio);
-    document.removeEventListener('keydown',initAudio);
+    if(gameRunning||!menu||menu.style.display==='none')return;
+    Audio.startMenuMusic().then(ok=>{
+      // Só encerra o unlock depois que o navegador realmente aceitou tocar.
+      // Se falhar no primeiro gesto, o próximo toque tenta de novo.
+      if(ok&&!homeAudioUnlocked){
+        homeAudioUnlocked=true;
+        removeHomeAudioUnlock();
+      }
+    });
   };
-  document.addEventListener('click',initAudio);
-  document.addEventListener('touchstart',initAudio);
-  document.addEventListener('keydown',initAudio);
+  document.addEventListener('pointerdown',initAudio,true);
+  document.addEventListener('touchstart',initAudio,true);
+  document.addEventListener('click',initAudio,true);
+  document.addEventListener('keydown',initAudio,true);
   // ─── UI POLISH: click sounds, hover, modal whoosh, 3D tilt ───
   installUIPolish();
   // Visibility — pause on tab switch, resume audio + wake lock when back
