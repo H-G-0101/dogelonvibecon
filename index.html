@@ -127,6 +127,9 @@ button:disabled{opacity:.4;cursor:not-allowed}
 .stage-num-pip.unlocked{border-color:rgba(255,184,0,.5);color:var(--gold)}
 .stage-num-pip:not(.unlocked):not(.active){opacity:.55}
 
+/* V89j — .diff-row/.diff-btn ficaram sem elemento (seletor removido da Home).
+   Mantidas por enquanto: são poucas linhas e apagar CSS que talvez volte
+   custa mais do que deixar. */
 .diff-row{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
 .diff-btn{padding:6px 12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:6px;font-family:var(--font-d);font-size:9px;letter-spacing:.1em;cursor:pointer;transition:all .15s}
 .diff-btn.active{background:rgba(255,77,26,.3);border-color:var(--mars);box-shadow:0 0 10px rgba(255,77,26,.3)}
@@ -2383,12 +2386,10 @@ button:disabled{opacity:.4;cursor:not-allowed}
         <div id="home-stage-numbers"></div>
       </div>
 
-      <div class="diff-row" id="diff-row">
-        <button class="diff-btn active" data-d="easy">EASY</button>
-        <button class="diff-btn" data-d="normal">NORMAL</button>
-        <button class="diff-btn" data-d="hard">HARD</button>
-        <button class="diff-btn" data-d="nightmare">NIGHTMARE</button>
-      </div>
+      <!-- V89j — seletor de dificuldade removido. Os quatro modos eram
+           código antigo: só um deles era jogado e os outros multiplicavam
+           vida/dano por trás, atrapalhando qualquer calibragem. Agora existe
+           um único balanceamento, o que estava valendo. -->
 
       <button id="daily-login-btn">claim</button>
       <div id="chip-coins">💰 0</div>
@@ -2571,15 +2572,16 @@ button:disabled{opacity:.4;cursor:not-allowed}
       <div class="setting-row"><span class="setting-label">Vibration (mobile)</span><div class="setting-control" id="set-vibration"><button class="toggle-btn" data-set="vibration" data-val="on">ON</button><button class="toggle-btn" data-set="vibration" data-val="off">OFF</button></div></div>
       <div class="setting-row"><span class="setting-label">Auto fullscreen on game start</span><div class="setting-control" id="set-fullscreen"><button class="toggle-btn" data-set="fullscreen" data-val="on">ON</button><button class="toggle-btn" data-set="fullscreen" data-val="off">OFF</button></div></div>
     </div>
-    <!-- V89g — CONTROLES DO PC. A seção inteira fica escondida no mobile
-         (ver applyTouchMode): teclado não existe lá e a linha só ocuparia
-         espaço numa tela já apertada. -->
+    <!-- V89g — PC key bindings. Hidden on touch-only devices (see
+         syncKeybindSectionVisibility): no keyboard there, and the rows
+         would just eat space on an already tight screen.
+         V89i: user-facing strings in English, matching the rest of Settings. -->
     <div class="settings-section" id="keybind-section">
       <h4>KEYBOARD (PC)</h4>
-      <div class="keybind-hint-v89">Clique num campo e aperte a tecla. Cada ação aceita duas.</div>
+      <div class="keybind-hint-v89">Click a field, then press a key. Each action takes two.</div>
       <div id="keybind-list"></div>
       <div class="modal-row" style="margin-top:10px">
-        <button class="modal-btn" id="btn-reset-keys">RESTAURAR PADRÃO</button>
+        <button class="modal-btn" id="btn-reset-keys">RESTORE DEFAULTS</button>
       </div>
     </div>
     <div class="modal-row">
@@ -2718,13 +2720,6 @@ button:disabled{opacity:.4;cursor:not-allowed}
 
 
 <script>
-/* ═══════════════════════════════════════════════════════════════════
-   [TESTE] BUILD DE TESTE — NÃO PUBLICAR
-   Vidas fixas em 15 para percorrer os cenários.
-   Para voltar ao normal: TEST_LIVES_OVERRIDE = null;
-   (null devolve o cálculo original: classe x dificuldade + mastery)
-   ═══════════════════════════════════════════════════════════════════ */
-const TEST_LIVES_OVERRIDE = 15;   // <<< null = comportamento normal
 
 /* ═══════════════════════════════════════════════════════════════════════
    V84 / V85 — OTIMIZAÇÃO DE PERFORMANCE E CARREGAMENTO
@@ -2860,7 +2855,11 @@ let tutorialStep=0;             // 0=not started; 1-4=in progress; 99=done
 let firstStageDone=false;       // gate for post-tutorial bonuses
 let welcomeBonusGiven=false;    // ensures FTUE gifts only once
 let totalKills=0,totalCoins=0,stagesCleared=0,bossesDefeated=0,sRanksTotal=0,noHitClears=0,cratesOpened=0;
-let difficulty='easy',selectedStage=0,maxUnlockedStage=0;
+// V89j: os quatro modos de dificuldade saíram. Depois de resolver todos os
+// multiplicadores para o valor que estava valendo, nada mais lê a variável,
+// então ela também foi embora — sobrar uma const morta só convidaria alguém
+// a religar o sistema por engano.
+let selectedStage=0,maxUnlockedStage=0;
 
 // ── WEAPONS ──
 let ownedWeapons=['w_blast'];            // ÚNICA ARMA DO JOGADOR
@@ -4162,21 +4161,26 @@ class Player{
     const stats={
       // djPower scales the second jump so it stays in character: the light
       // classes flip cleanly, the heavy gets a shorter hop.
-      dogelon:{spd:3.8,jp:-10.5,lives:3,w:24,h:32,weapon:'blast',dj:true,djPower:0.85},
+      // V89i: base 5. Era 3, e os 5 só apareciam porque o multiplicador de
+      // dificuldade do EASY (x1.5) arredondava 3 para 5. Quem trocasse para
+      // NORMAL caía para 3 sem entender por quê. Agora 5 é o número real do
+      // personagem e a dificuldade parte dele.
+      dogelon:{spd:3.8,jp:-10.5,lives:5,w:24,h:32,weapon:'blast',dj:true,djPower:0.85},
       ninja:{spd:5.0,jp:-11.5,lives:2,w:22,h:30,weapon:'blast',dj:true,djPower:0.9},
       heavy:{spd:2.6,jp:-9,lives:5,w:28,h:36,weapon:'blast',dj:true,djPower:0.7},
       scout:{spd:5.2,jp:-11,lives:3,w:22,h:28,weapon:'blast',dj:true,djPower:0.9}
-    }[this.charClass]||{spd:3.8,jp:-10.5,lives:3,w:24,h:32,weapon:'blast',dj:true,djPower:0.85};
+    }[this.charClass]||{spd:3.8,jp:-10.5,lives:5,w:24,h:32,weapon:'blast',dj:true,djPower:0.85};
     Object.assign(this,stats);
     // Apply difficulty
-    const diffMul={easy:1.5,normal:1,hard:0.7,nightmare:0.5}[difficulty]||1;
-    this.lives=Math.max(1,Math.ceil(this.lives*diffMul));
+    // ===== V89j — SEM MULTIPLICADOR DE DIFICULDADE =====
+    // As vidas agora são exatamente o valor da classe: 5 para o dogelon.
+    // Antes passavam por um x1.5 do EASY, que é de onde vinham os 5 a partir
+    // de uma base 3 — número nenhum ali era escolhido de propósito.
+    // O dano do jogador mantém o antigo bônus do EASY (1.5), que já era o
+    // que estava valendo na prática; só deixou de ser variável.
+    const diffMul=1.5;
     // Apply mastery: +1 life per Vitality point, +3% spd/jump per Mobility point
     this.lives+=getMasteryBonus('hp');
-    // ───────────────────────────────────────────────────────────────
-    // [TESTE] Override de vidas — ver TEST_LIVES_OVERRIDE no topo.
-    // Ignora classe, dificuldade e mastery. REMOVER ANTES DE PUBLICAR.
-    if(TEST_LIVES_OVERRIDE!==null)this.lives=TEST_LIVES_OVERRIDE;
     const masterySpdMul=1+getMasteryBonus('spd')*0.03;
     this.spd*=masterySpdMul;
     this.jp*=masterySpdMul;
@@ -5124,8 +5128,14 @@ class Enemy{
     }[type]||{hp:2,w:24,h:32,spd:1.2,col:'#aa3030',shootRate:90,score:50,dmg:1};
     Object.assign(this,T);
     this.maxHp=this.hp;
-    // Difficulty scaling
-    const dmul={easy:0.8,normal:1,hard:1.4,nightmare:2}[difficulty]||1;
+    // ===== V89j — MULTIPLICADOR FIXO NO VALOR QUE ESTAVA VALENDO =====
+    // Mantido em 0.8 (o antigo EASY) de propósito: era esse o número em que
+    // toda a calibragem recente foi feita. Zerar para 1.0 aqui deixaria a
+    // tabela mais honesta, mas deixaria TODO inimigo 25% mais duro do que
+    // vem sendo testado — mudança de balanceamento disfarçada de limpeza.
+    // Para tornar os valores da tabela literais: troque por 1 e multiplique
+    // cada hp por 0.8 na tabela acima.
+    const dmul=0.8;
     this.hp=Math.ceil(this.hp*dmul);this.maxHp=this.hp;
     this.shootCD=Math.random()*60;
     this.dir=-1;this.vx=0;this.vy=0;
@@ -5425,7 +5435,7 @@ class Enemy{
         // Patrol as before — it still never chases. But if you step into
         // its reach while it paces, it turns and swings.
         const near=player.active&&Math.abs(player.y-this.y)<this.h+28;
-        if(this.shaman&&this.castCD<=0&&near&&adx>this.reach+28&&adx<285){
+        if(this.shaman&&this.castCD<=0&&near&&adx>this.reach+24&&adx<360){
           // A média distância ele não fica passivo: usa a magia do próprio pack.
           this.castT=0;this.castHit=false;this.vx=0;
           this.dir=Math.sign(dx)||this.dir;
@@ -5998,6 +6008,11 @@ const DEMON_ATLAS={cw:288,ch:160,cols:32,hold:6,
 // size : largura do sprite na tela contra os 30px do tiro normal
 // hit  : meia-largura da hitbox; o tiro normal usa acerto pontual
 const CHARGE={time:48,mult:3,cost:2,size:56,hit:16};
+// ===== V92 — DANO DE TIRO REDUZIDO SOMENTE NOS CHEFES DAS FASES 1 E 2 =====
+// O dano contra inimigos comuns NÃO muda. Melee, HP dos bosses, IA e performance
+// também permanecem intactos. O tiro normal causa 70% do dano bruto no boss;
+// o carregado causa 50%, reduzindo o pico do super tiro (que nasce com mult 3x).
+const BOSS_SHOT_DAMAGE_MUL={normal:0.70,charged:0.50};
 const DEMON_PUNISH_RANGE=104;
 // ===== V89 — SALTO DE ESQUIVA DO DEMÔNIO =====
 // Mesma detecção dos orcs (Enemy: dodgeChance / dodgeCD), mas usando a folha
@@ -6227,7 +6242,7 @@ class Boss{
       eye:{hp:120,w:120,h:90,spd:1.0,col:'#aa00cc',col2:'#ff00ff'}
     }[this.type]||{hp:80,w:90,h:60,spd:1.2,col:'#aa2020',col2:'#ff5040'};
     Object.assign(this,T);
-    const dmul={easy:0.7,normal:1,hard:1.4,nightmare:2}[difficulty]||1;
+    const dmul=0.7;   // V89j — idem: chefes seguem no valor do antigo EASY
     this.hp=Math.ceil(this.hp*dmul);this.maxHp=this.hp;
     this.dir=-1;this.vx=0;this.vy=0;
     this.shootCD=60;this.specialCD=180;
@@ -7772,6 +7787,13 @@ function loadStage(idx,fromCheckpoint){
     // The level is split into sectors, each sealed by a door that only
     // opens once that sector's enemies are dead — so you can't just
     // sprint past everything to the boss.
+    // ===== V90 — ORCS DA FASE 2: AGRESSIVIDADE AUMENTADA / ALTERAÇÃO ISOLADA =====
+    // Somente aggro, alcance, velocidade de carga, recuperação, esquiva e zona de pressão.
+    // NÃO alterar HP, dano, sprites, cenário, folds, otimizações V84/V85 ou outros inimigos.
+    // ===== V91 — ORC SHAMAN DA FASE 1 TAMBÉM MAIS AGRESSIVO =====
+    // Escopo da alteração: somente o inimigo de chão da Fase 1 (shaman/orc)
+    // e a manutenção dos buffs já aplicados aos orcs da Fase 2. Não mexer
+    // em cenário, HUD, performance, boss, danos base, sprites ou outros sistemas.
     const gateFrom=500, gateTo=stageWidth-900;
     const SECTORS=3;
     const secLen=(gateTo-gateFrom)/SECTORS;
@@ -7803,41 +7825,44 @@ function loadStage(idx,fromCheckpoint){
           e.w=38;e.h=42;e.y=(LV?floorYAt(ex):groundY)-e.h;
           e.spd=1.05;
           e.barLift=46;
-          // ===== V89 — SHAMAN MAIS AGRESSIVO =====
-          // Enxerga de mais longe, fecha mais rápido, recupera antes entre
-          // golpes e volta a lançar magia mais cedo. A perseguição sobe de
-          // 2.36 para 2.73 px/frame — continua abaixo dos 3.8 do jogador,
-          // então dá para desengajar correndo. Isso é de propósito.
-          e.aggroRange=410;
-          e.reach=70;
-          e.chargeMul=2.60;
-          e.atkRecover=17;
-          e.dodgeChance=0.75;
-          e.dodgeVy=-7.3;
-          e.dodgeRecover=11;
-          e.jumpCD2=90+Math.random()*80;
-          e.castCD=24+Math.random()*32;
+          // ===== V91 — SHAMAN DA FASE 1 AINDA MAIS AGRESSIVO =====
+          // Ajuste isolado: o orc/shaman da Fase 1 agora entra em combate
+          // mais cedo, avança mais rápido, ataca com menos intervalo, se
+          // esquiva melhor e volta a conjurar magia mais cedo.
+          e.aggroRange=520;
+          e.reach=78;
+          e.chargeMul=3.05;
+          e.atkRecover=12;
+          e.dodgeChance=0.88;
+          e.dodgeVy=-7.0;
+          e.dodgeRecover=8;
+          e.jumpCD2=70+Math.random()*55;
+          e.castCD=16+Math.random()*24;
           e.col='#8c5a34';
         }else{
-          // ===== V89 — BERSERKER MAIS AGRESSIVO =====
-          // Ele era o único dos três rodando nos defaults crus da classe
-          // (aggro 190, charge 1.9, recover 50), por isso parecia apático
-          // perto do warrior. Perseguição vai de 1.71 para 2.25 px/frame:
-          // ainda abaixo dos 3.8 do jogador, ele pressiona sem prender.
+          // ===== V90 — BERSERKER AINDA MAIS AGRESSIVO =====
+          // ALTERAÇÃO ISOLADA: somente comportamento dos orcs da Fase 2.
+          // Detecta de mais longe, acelera a carga, alcança um pouco mais,
+          // recupera muito mais rápido entre golpes e esquiva com mais frequência.
+          // HP, dano, sprites, cenário, performance e demais inimigos NÃO mudam.
           e.melee=true;              // orc berserker da fase 2
           e.barLift=32;
-          e.aggroRange=300;
-          e.reach=60;
-          e.chargeMul=2.50;
-          e.atkRecover=28;
-          e.dodgeChance=0.42;
+          e.aggroRange=430;
+          e.reach=68;
+          e.chargeMul=3.10;
+          e.atkRecover=16;
+          e.dodgeChance=0.65;
+          e.dodgeVy=-6.4;
+          e.dodgeRecover=12;
         }
         // Walk a few metres either way, but never past the ends of the slab
         // it stands on — that's what keeps it off steps and pit edges.
         const run=LV&&LV.ground.find(r=>ex>=r.a&&r.b>ex);
         // V89: a carga só dispara com o jogador DENTRO da zona de patrulha,
         // então alargar a zona é o que faz o aggroRange maior valer de fato.
-        const RANGE=215;
+        // V90: os berserkers da Fase 2 têm uma zona de pressão maior;
+        // Fase 1 mantém exatamente o alcance anterior.
+        const RANGE=(idx===1)?300:215;
         if(run){
           e.patrolMin=Math.max(run.a+26,ex-RANGE);
           e.patrolMax=Math.min(run.b-26,ex+RANGE);
@@ -7859,15 +7884,17 @@ function loadStage(idx,fromCheckpoint){
           const e=getFromPool(pools.enemies,Enemy,ex,floorYAt(ex)-38,'warrior');
           e.eid=eid;e.homeX=ex;e.leash=Math.round(secLen*0.4);
           e.melee=true;
-          e.aggroRange=420;e.reach=74;e.chargeMul=2.9;e.atkRecover=16;
-          e.dodgeChance=0.85;  // warrior reads shots far better
-          e.dodgeVy=-6.2;      // short, snappy hop = back on its feet sooner
-          e.dodgeRecover=8;
+          // ===== V90 — WARRIOR DE SETOR MAIS AGRESSIVO =====
+          // Só IA de combate: nenhuma mudança em HP/dano/arte/performance.
+          e.aggroRange=540;e.reach=86;e.chargeMul=3.55;e.atkRecover=9;
+          e.dodgeChance=0.95;
+          e.dodgeVy=-6.0;      // salto curto: volta ao ataque rapidamente
+          e.dodgeRecover=5;
           e.barLift=48;   // sprite is 2.2x the box, bar clears the head
           const run=LV.ground.find(r=>ex>=r.a&&r.b>ex);
           if(run){
-            e.patrolMin=Math.max(run.a+26,ex-240);
-            e.patrolMax=Math.min(run.b-26,ex+240);
+            e.patrolMin=Math.max(run.a+26,ex-330);
+            e.patrolMax=Math.min(run.b-26,ex+330);
             if(e.patrolMax-e.patrolMin<60){
               const mid=(run.a+run.b)/2;e.patrolMin=mid-30;e.patrolMax=mid+30;
             }
@@ -7891,23 +7918,21 @@ function loadStage(idx,fromCheckpoint){
         const e=getFromPool(pools.enemies,Enemy,ex,floorYAt(ex)-spawnH,type);
         e.eid=eid;e.homeX=ex;e.melee=true;
         if(isWarrior){
-          // ===== V89 — WARRIOR MAIS AGRESSIVO =====
-          // Já era o mais bruto dos três; sobe mantendo o mesmo papel de
-          // muro. A 5.28 px/frame ele é MAIS RÁPIDO que o jogador (3.8):
-          // dentro da zona dele não dá para simplesmente correr, tem que
-          // ser enfrentado. O leash é o que impede isso de virar
-          // perseguição pela fase inteira — por isso ele sobe pouco.
-          e.leash=320;
-          e.aggroRange=500;e.reach=80;e.chargeMul=3.30;e.atkRecover=12;
-          e.dodgeChance=0.90;e.dodgeVy=-6.2;e.dodgeRecover=7;e.barLift=48;
+          // ===== V90 — WARRIOR EXPLÍCITO AINDA MAIS AGRESSIVO =====
+          // Mantém o papel de inimigo pesado, mas reage e volta ao ataque
+          // mais rápido. Somente a IA dos orcs foi alterada nesta versão.
+          e.leash=360;
+          e.aggroRange=600;e.reach=90;e.chargeMul=3.70;e.atkRecover=8;
+          e.dodgeChance=0.96;e.dodgeVy=-6.0;e.dodgeRecover=5;e.barLift=48;
         }else{
-          e.leash=250;e.barLift=32;
-          e.aggroRange=300;e.reach=60;e.chargeMul=2.50;e.atkRecover=28;
-          e.dodgeChance=0.42;
+          // ===== V90 — BERSERKER EXPLÍCITO MAIS AGRESSIVO =====
+          e.leash=320;e.barLift=32;
+          e.aggroRange=430;e.reach=68;e.chargeMul=3.10;e.atkRecover=16;
+          e.dodgeChance=0.65;e.dodgeVy=-6.4;e.dodgeRecover=12;
         }
         const run=LV.ground.find(r=>ex>=r.a&&r.b>ex);
         if(run){
-          const range=isWarrior?300:215;   // V89 — a carga só existe dentro da zona
+          const range=isWarrior?360:300;   // V90 — zona de pressão maior, ainda limitada ao slab
           e.patrolMin=Math.max(run.a+26,ex-range);
           e.patrolMax=Math.min(run.b-26,ex+range);
           if(e.patrolMax-e.patrolMin<60){
@@ -7958,15 +7983,16 @@ function loadStage(idx,fromCheckpoint){
           e.shaman=true;e.melee=true;
           e.hp=5;e.maxHp=5;e.w=38;e.h=42;e.y=floorYAt(ex)-e.h;
           e.spd=1.05;e.barLift=46;
-          e.aggroRange=360;e.reach=66;e.chargeMul=2.25;e.atkRecover=24;
-          e.dodgeChance=0.65;e.dodgeVy=-7.3;e.dodgeRecover=13;
-          e.jumpCD2=70+Math.random()*70;e.castCD=25+Math.random()*45;
+          // ===== V91 — SHAMAN FIXO DA EXPANSÃO COMPORTA-SE COMO AMEAÇA REAL =====
+          e.aggroRange=520;e.reach=78;e.chargeMul=3.05;e.atkRecover=12;
+          e.dodgeChance=0.88;e.dodgeVy=-7.0;e.dodgeRecover=8;
+          e.jumpCD2=70+Math.random()*55;e.castCD=16+Math.random()*24;
           e.col='#8c5a34';
 
           const run=LV.ground.find(r=>ex>=r.a&&r.b>ex);
           if(run){
-            e.patrolMin=Math.max(run.a+28,ex-175);
-            e.patrolMax=Math.min(run.b-28,ex+175);
+            e.patrolMin=Math.max(run.a+28,ex-240);
+            e.patrolMax=Math.min(run.b-28,ex+240);
           }
           if(!pools.enemies.includes(e))pools.enemies.push(e);
         }else if(d.type==='monster'){
@@ -7991,7 +8017,7 @@ function loadStage(idx,fromCheckpoint){
       if(!pools.enemies.includes(e))pools.enemies.push(e);
     }
   }else{
-    const enemyCount=18+idx*5+(difficulty==='hard'?12:difficulty==='nightmare'?22:0);
+    const enemyCount=18+idx*5;   // V89j — os acréscimos eram só de hard/nightmare
     const types=['grunt','grunt','grunt','jumper','sniper','bomber'];
     if(idx>=2)types.push('shielded','elite');
     if(idx>=4)types.push('healer','elite');
@@ -11108,11 +11134,18 @@ function checkCollisions(){
        b.y>boss.y-bLift&&b.y<boss.y+boss.h
        &&!(b.hitTargets&&b.hitTargets.has(boss))){
       if(b.pierceLeft>0){if(!b.hitTargets)b.hitTargets=new Set();b.hitTargets.add(boss);}
-      boss.takeHit(b.dmg);
       const bchg=b.type==='blastCharged';
+      // V92: redução exclusiva para os dois chefes finais atualmente jogáveis.
+      // Tank = chefe da Fase 1; Shoggoth = chefe da Fase 2. Futuros bosses mantêm
+      // o dano original até serem balanceados explicitamente.
+      const bossShotMul=(boss.type==='tank'||boss.type==='shoggoth')
+        ?(bchg?BOSS_SHOT_DAMAGE_MUL.charged:BOSS_SHOT_DAMAGE_MUL.normal)
+        :1;
+      const bossShotDmg=b.dmg*bossShotMul;
+      boss.takeHit(bossShotDmg);
       shotsHit++;hitstop=Math.max(hitstop,bchg?0.075:0.04);
       if(bchg){shake(6);spawnS(b.x,b.y,16,'#cfe2ff');for(let i=0;i<10;i++)spawnP(b.x,b.y,1,'#a9c8ff',4);}
-      pushDamageNumber(boss.x+boss.w/2,boss.y,b.dmg,b.crit,b.crit?'#ffd700':'#fff');
+      pushDamageNumber(boss.x+boss.w/2,boss.y,bossShotDmg,b.crit,b.crit?'#ffd700':'#fff');
       if(b.special&&b.special.splash)applySplash(boss.x+boss.w/2,boss.y+boss.h/2,b.special.splash,b.dmg*0.6,false);
       // Boss does not consume pierce; it always blocks the bullet
       b.active=false;
@@ -12857,14 +12890,10 @@ function buildStagePicker(){
     sp.appendChild(btn);
   }
 }
-function setupDifficultyButtons(){
-  document.querySelectorAll('.diff-btn').forEach(b=>{
-    b.onclick=()=>{
-      difficulty=b.dataset.d;
-      document.querySelectorAll('.diff-btn').forEach(x=>x.classList.toggle('active',x===b));
-    };
-  });
-}
+// V89j — os botões de dificuldade saíram da Home. A função continua
+// existindo (é chamada na inicialização) mas não faz mais nada: `difficulty`
+// virou const e atribuir a ela lançaria TypeError.
+function setupDifficultyButtons(){}
 
 // ════════════════════════════════════════════════════════════
 //  GAME START / TRANSITIONS
@@ -13303,7 +13332,7 @@ function renderKeybinds(){
       const btn=document.createElement('div');
       btn.className='kb-key';
       btn.textContent=keyLabel(kb[a.id][slot]);
-      btn.title='Clique e aperte a tecla';
+      btn.title='Click, then press a key';
       // Uma tecla usada por DUAS ações diferentes fica marcada. Não bloqueio
       // — pode ser intencional (atirar e melee no mesmo dedo) — mas o
       // jogador precisa ver que foi isso que ele fez.
