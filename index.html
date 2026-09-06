@@ -8337,7 +8337,19 @@ const LEVEL3={
     {x:3760,y:220,w:110},   // ponto mais alto da travessia
     {x:4120,y:260,w:110},
     {x:4480,y:310,w:110},
-    {x:4840,y:350,w:110}
+    // ═══════ V141 — ÚLTIMA ÂNCORA MAIS ALTA (350 -> 300) ═══════
+    // Daqui dava para atirar nos lizards sem que eles alcançassem você.
+    // O motivo é a hitbox de bala do inimigo, que é estendida para cima pelo
+    // barLift: `eTop = e.y - barLift`. Com o lizard em y=374 e barLift 52,
+    // o topo efetivo dele é 322 — e o tiro saindo de uma plataforma em 350
+    // passa em 330, bem dentro dessa faixa.
+    // (E eu piorei isso sem notar: subi o barLift do lizard de 38 para 52
+    // no V141 anterior, ao aumentar o sprite dele.)
+    // Em 300 o tiro sai em 280 e passa POR CIMA de 322: a galeria de tiro
+    // deixa de existir sem precisar mexer no inimigo nem no alcance da arma.
+    // A travessia continua fechando: o salto da fold 7 para cá vira 85px
+    // subindo 25, contra um alcance de 133.
+    {x:4840,y:300,w:110}
   ],
   folds:[
     // A primeira e a última são propositalmente PULÁVEIS com salto duplo:
@@ -8439,26 +8451,38 @@ const LEVEL3={
   // nunca formam uma onda decorável.
   // Simulei 24 horários de entrada: a travessia sai em 7.5s no melhor caso
   // e 10.3s no pior, contra 7.1s sem laser nenhum. Nenhuma entrada trava.
+  // ══════ V143 — DE 9 PARA 19 FEIXES ══════
+  // Espaçamento de 155px para 82px. Aqui o limite NÃO é o salto de 144px
+  // que rege as serras: o feixe vai de 174 a 280 e cobre a altura inteira
+  // do andar, então pular não passa por cima — só dá para esperar apagar.
+  // O que limita é o espaço para ESPERAR: o dano do feixe tem 8px e o
+  // jogador 24px, então 82px de espaçamento deixam 74px livres entre dois
+  // feixes. Cabe com folga.
+  // Os 19 ciclos são todos diferentes (186 a 243 frames), porque o `off`
+  // deriva do x. Cada feixe fica aceso ~33% do tempo.
+  // Simulei 50 horários de entrada: todas atravessam, nenhuma trava.
+  // Travessia sai em 8.2s no melhor caso e 11.6s no pior, contra 6.7s sem
+  // laser nenhum e 10.3s com os 9 anteriores.
   lasers:[
-    {x:6795,top:174,bot:280,t:190},
-    {x:6640,top:174,bot:280,t:120},
-    {x:6485,top:174,bot:280,t:50},
-    {x:6330,top:174,bot:280,t:165},
-    {x:6175,top:174,bot:280,t:95},
-    {x:6020,top:174,bot:280,t:25},
-    {x:5865,top:174,bot:280,t:140},
-    {x:5710,top:174,bot:280,t:70},
-    {x:5555,top:174,bot:280,t:0},
-
-    // ══════════ V111 — LASERS VERTICAIS DA FÁBRICA DE ÁCIDO ══════════
-    // Vão do teto até a plataforma correspondente, como no conceito aprovado.
-    // Seeds diferentes impedem uma parede impossível de feixes sincronizados.
-    {x:8650, top:48,bot:350,t:24},
-    {x:9040, top:48,bot:300,t:118},
-    {x:9620, top:48,bot:240,t:56},
-    {x:10240,top:48,bot:310,t:146},
-    {x:10820,top:48,bot:220,t:82},
-    {x:11180,top:48,bot:330,t:12}
+    {x:5420,top:174,bot:280,t:0},
+    {x:5502,top:174,bot:280,t:97},
+    {x:5584,top:174,bot:280,t:194},
+    {x:5667,top:174,bot:280,t:91},
+    {x:5749,top:174,bot:280,t:188},
+    {x:5831,top:174,bot:280,t:85},
+    {x:5913,top:174,bot:280,t:182},
+    {x:5996,top:174,bot:280,t:79},
+    {x:6078,top:174,bot:280,t:176},
+    {x:6160,top:174,bot:280,t:73},
+    {x:6242,top:174,bot:280,t:170},
+    {x:6324,top:174,bot:280,t:67},
+    {x:6407,top:174,bot:280,t:164},
+    {x:6489,top:174,bot:280,t:61},
+    {x:6571,top:174,bot:280,t:158},
+    {x:6653,top:174,bot:280,t:55},
+    {x:6736,top:174,bot:280,t:152},
+    {x:6818,top:174,bot:280,t:49},
+    {x:6900,top:174,bot:280,t:146}
   ],
   // ══════ V122 — PRENSAS ══════
   // Aqui não precisam de `drop`: o teto de 290 já põe a ponta a 19px do
@@ -10788,9 +10812,24 @@ function drawStage3AcidFactoryBackdrop(){
   for(let n=0;n<panels.length;n++){
     const wx=panels[n],sx=Math.round(wx-scrollX);
     if(sx<-100||sx>W+100)continue;
+    // ═══════ V142 — VENTOINHA DAS COLUNAS TÉCNICAS ═══════
+    // Duas correções.
+    // 1) Ela era desenhada com o frame 0 fixo, enquanto a ventoinha da
+    //    decoração (kind 3) anima com `floor(now/90)%4`. Como as duas
+    //    aparecem nas mesmas fases, uma girava e a outra não — era esse o
+    //    descompasso. A faixa `fans` tem 4 frames de 32px no atlas, então o
+    //    mesmo ciclo serve aqui.
+    // 2) A coluna desenha dois painéis de 64px em y=92 e y=156, terminando
+    //    em 220, e a ventoinha ficava em y=232: solta na parede, abaixo dos
+    //    painéis, sem moldura. Agora a coluna tem um TERCEIRO painel em 220
+    //    e a ventoinha fica centrada dentro dele — 220+(64-48)/2 = 228, com
+    //    8px de margem em cima e embaixo, igual aos 8px que ela já tinha nas
+    //    laterais (sx+8 num painel de 64 com sprite de 48).
     sf('wallTiles',0,0,32,32,sx,92,64,64);
     sf('wallTiles',0,0,32,32,sx,156,64,64);
-    sf('fans',0,0,32,32,sx+8,232,48,48);
+    sf('wallTiles',0,0,32,32,sx,220,64,64);
+    const fanF=Math.floor(performance.now()/90)%4;
+    sf('fans',fanF*32,0,32,32,sx+8,228,48,48);
     wallLamp((n%3)*48,sx+16,70,1.15,true);
   }
 }
