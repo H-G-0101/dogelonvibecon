@@ -9940,7 +9940,33 @@ function drawFacilityDynamicPlatformsOnly(){
     drawFacilityPlatform(pl,sx);
   }
 }
+// ═══════════ V144 — VENTOINHAS FORA DO CACHE ═══════════
+// Elas eram desenhadas dentro de buildFacilityStaticPage, que gera uma
+// página de cenário a cada 400px de scroll e depois só cola o bitmap
+// pronto. O performance.now() era avaliado uma vez, na geração, e a hélice
+// ficava congelada naquele frame até você andar 400px.
+// Agora as duas funções só REGISTRAM a posição enquanto a página é
+// construída, e drawFacilityFans() desenha por frame, por cima do cache.
+//
+// V145 — a lista é POR PÁGINA, não global. Na primeira versão eu guardava
+// num array só, zerado a cada build: como as páginas ficam em cache e o
+// build não roda todo frame, a lista acabava contendo só a última página
+// construída — as ventoinhas das outras sumiam. Agora cada página carrega
+// a sua, e o desenho percorre as duas páginas visíveis.
+let facilityFanSpots=[];   // preenchido durante o build da página atual
+function drawFacilityFansFor(page){
+  if(!page||!page.fanSpots||!page.fanSpots.length)return;
+  const ff=Math.floor(performance.now()/90)%4;
+  for(const f of page.fanSpots){
+    const sx=Math.round(f.x-scrollX);
+    if(sx<-f.w-20||sx>W+20)continue;
+    // sy=32 é a linha do sprite que já vem com a carcaça; sy=0 é a nua.
+    sf('fans',ff*32,f.framed?32:0,32,32,sx,f.y,f.w,f.h);
+  }
+}
 function buildFacilityStaticPage(baseX){
+  const spots=[];
+  facilityFanSpots=spots;   // as funções de desenho empurram aqui
   // V89c: a página é desenhada em W*sc x H*sc e o contexto recebe a escala,
   // então TODO o código de desenho do cenário continua raciocinando em
   // coordenadas de 800x450 — nada abaixo precisou mudar. A diferença é que
@@ -9961,6 +9987,7 @@ function buildFacilityStaticPage(baseX){
   drawFacilityDecor();
   drawFacilityEdgeWall();
   ctx=oldCtx;scrollX=oldScroll;
+  c.fanSpots=spots;   // V145 — a página carrega as próprias ventoinhas
   return c;
 }
 function getFacilityStaticPage(baseX){
@@ -9984,6 +10011,9 @@ function drawFacilityStaticCached(){
     const page=getFacilityStaticPage(bx);
     ctx.drawImage(page,Math.round(bx-scrollX),0,W,H);
   }
+  // V144/V145: a camada animada vai POR CIMA do cache, todo frame, e sai
+  // das duas páginas visíveis.
+  for(const bx of bases)drawFacilityFansFor(facilityStaticCache.get(bx));
 }
 
 function render(){
@@ -10827,9 +10857,20 @@ function drawStage3AcidFactoryBackdrop(){
     //    laterais (sx+8 num painel de 64 com sprite de 48).
     sf('wallTiles',0,0,32,32,sx,92,64,64);
     sf('wallTiles',0,0,32,32,sx,156,64,64);
-    sf('wallTiles',0,0,32,32,sx,220,64,64);
-    const fanF=Math.floor(performance.now()/90)%4;
-    sf('fans',fanF*32,0,32,32,sx+8,228,48,48);
+    // V144: a ventoinha NÃO é desenhada aqui. Esta função roda dentro de
+    // buildFacilityStaticPage, que gera uma página de cenário a cada 400px
+    // de scroll e depois só cola o bitmap — o performance.now() é avaliado
+    // uma vez e a hélice congela. Ela passou para drawFacilityFans(), que
+    // roda por frame. Aqui fica só a moldura, que é estática mesmo.
+    // V145: a moldura vem no PRÓPRIO sprite. A faixa `fans` do atlas tem
+    // duas linhas — sy=0 é a hélice nua e sy=32 é ela dentro da carcaça com
+    // parafusos. Eu estava usando a nua e recriando a moldura com um painel
+    // de parede atrás, que nunca ia alinhar. Agora é a linha de baixo, e o
+    // alinhamento é o do desenho.
+    // V146: `facilityFanSpots` e não `spots` — este último é local do
+    // buildFacilityStaticPage e esta função é outra, não o enxerga.
+    // Durante o build, facilityFanSpots aponta para o array da página atual.
+    facilityFanSpots.push({x:wx,y:224,w:56,h:56,framed:true});
     wallLamp((n%3)*48,sx+16,70,1.15,true);
   }
 }
@@ -12004,8 +12045,10 @@ function drawFacilityPipes(){
     }else if(kind===3){
       const wx=Math.round(k*SPAN+40), wy=Math.round(base-130), ww=64, wh=64;
       if(!facilityWindowOverlap(wx,wy,ww,wh,18) && !facilityModuleOverlap(wx,wy,ww,wh,18)){
-        const ff=Math.floor(performance.now()/90)%4;
-        sf('fans',ff*32,0,32,32,Math.round(wx-scrollX),wy,ww,wh);
+        // V144: mesma história — drawFacilityPipes também é chamada de
+        // dentro do cache. Só registra o ponto; quem desenha é
+        // drawFacilityFans(), por frame.
+        facilityFanSpots.push({x:wx,y:wy,w:ww,h:wh,framed:false});   // V146
       }
     }else{
       // ===== V78 — SPRITE TIPO 'ESCADA' REMOVIDO =====
