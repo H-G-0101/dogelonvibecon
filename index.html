@@ -4708,7 +4708,11 @@ function drawLizardOfficial(bw,bh,frame,e){
   // V99: 2.6 -> 2.25. Ainda acima dos 2.1 do crawler, porque a célula do
   // lizard tem muito ar em volta (a lança ocupa a largura toda), mas o
   // bicho estava grande demais para a caixa de colisão de 26px.
-  const scale=(bh*2.25)/ch;
+  // V139: 2.25 -> 3.30. O corpo saía com 41px de altura na tela contra 62 do
+  // warrior, 66 do masked orc e 69 do shaman — ele era o MENOR inimigo de
+  // chão do jogo desde que virou o segundo mais forte da Fase 3.
+  // (26*3.30)/68 = 1.26, e o corpo de 48px vira 60px: entra na faixa.
+  const scale=(bh*3.30)/ch;
   const dw=cw*scale, dh=ch*scale;
   ctx.drawImage(lizardImg,sx,sy,cw,ch,(bw-dw)/2,bh-dh,dw,dh);
 }
@@ -7120,7 +7124,10 @@ class Boss{
   takeHit(dmg){
     if(this.dying)return;
     this.hp-=dmg;
-    if(this.type==='tank'||this.type==='knight'||this.type==='shoggoth')this.hitPoseTimer=14;
+    // V139: o dragão estava fora desta lista. As 6 frames de `hurt` estão no
+    // atlas e o drawBody dele já as consulta via hitPoseTimer — só faltava
+    // alguém ligar o gatilho, então ele levava tiro sem reagir.
+    if(this.type==='tank'||this.type==='knight'||this.type==='shoggoth'||this.type==='dragon')this.hitPoseTimer=14;
     spawnS(this.x+this.w/2,this.y+this.h/2,4,'#ffaa00');
   }
   // ─── SHOGGOTH BRAIN ───
@@ -8922,8 +8929,15 @@ function loadStage(idx,fromCheckpoint){
         // lizards: persegue até a parede ou o precipício e volta ali.
         // E ganha `persist`, então não some por ficar para trás — era isso
         // que fazia os inimigos desaparecerem do cenário.
+        // ═══════ V140 — PERSIST PARA TODOS ═══════
+        // Era só o masked orc. Agora vale para shaman, berserker e masked
+        // orc: o inimigo deixa de ser descartado 300px atrás da câmera.
+        // Isto NÃO faz ele te seguir pela fase — a perseguição continua
+        // limitada à faixa de patrulha dele. O que muda é que voltar por um
+        // trecho já percorrido reencontra quem você deixou passar, em vez
+        // de achar um corredor vazio.
         const isMasked=(groundType==='maskedOrc');
-        if(isMasked)e.persist=true;
+        e.persist=true;
         const RANGE=isMasked?1e9:((idx===1)?300:215);
         if(run){
           e.patrolMin=Math.max(run.a+26,ex-RANGE);
@@ -9005,7 +9019,7 @@ function loadStage(idx,fromCheckpoint){
         // desengajar correndo. A diferença entre eles é a leitura.
         // O alcance de 88 sobe para 92: a lança continua sendo o que
         // distingue o lizard do machado do orc (84).
-        e.barLift=38;
+        e.barLift=52;   // V139 — acompanha o sprite maior (60px de corpo)
         // V126: aggroRange 600 -> 760. Sozinho ele não mudava nada, porque
         // a faixa já o cortava antes; com as faixas de 500px ele passa a
         // valer, e o lizard reage assim que você entra na zona em vez de
@@ -9033,6 +9047,7 @@ function loadStage(idx,fromCheckpoint){
         const spawnH=isWarrior?38:22;
         const e=getFromPool(pools.enemies,Enemy,ex,floorYAt(ex)-spawnH,type);
         e.eid=eid;e.homeX=ex;e.melee=true;
+        e.persist=true;   // V140 — mesma regra dos inimigos de setor
         if(isWarrior){
           // ===== V90 — WARRIOR EXPLÍCITO AINDA MAIS AGRESSIVO =====
           // Mantém o papel de inimigo pesado, mas reage e volta ao ataque
