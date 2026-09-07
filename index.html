@@ -700,7 +700,7 @@ button:disabled{opacity:.4;cursor:not-allowed}
 .kill-feed-item.crit{border-left-color:var(--gold);color:var(--gold)}
 
 /* ══ PHASE INTRO ══ */
-#phase-intro{position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.92);display:none;align-items:center;justify-content:center;flex-direction:column}
+#phase-intro{position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.92);display:none;align-items:center;justify-content:center;flex-direction:column;padding:10px;overflow-y:auto}
 #phase-intro.show{display:flex;animation:fadeIn .3s}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 #phase-intro-stage{font-family:var(--font-d);font-size:14px;color:var(--gold);letter-spacing:.3em;margin-bottom:8px}
@@ -712,9 +712,23 @@ button:disabled{opacity:.4;cursor:not-allowed}
 #phase-intro-boss-art{display:none;margin:0 auto 8px;opacity:0;animation:loreIn .6s ease-out .15s forwards;filter:drop-shadow(0 0 18px rgba(255,60,20,.35))}
 #phase-intro-lore .ln{opacity:0;animation:loreIn .55s ease-out forwards}
 @keyframes loreIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-#phase-intro-boss .ep{display:block;font-family:var(--font-b,inherit);font-size:10px;color:rgba(255,255,255,.5);letter-spacing:.12em;margin-top:7px;text-transform:none}
-#phase-intro-skip{margin-top:18px;font-family:var(--font-d);font-size:10px;letter-spacing:.25em;color:rgba(255,255,255,.45);animation:skipPulse 1.6s ease-in-out infinite}
-@keyframes skipPulse{0%,100%{opacity:.3}50%{opacity:.9}}
+#phase-intro-boss .ep{display:block;font-family:var(--font-b,inherit);font-size:10px;color:rgba(255,255,255,.5);letter-spacing:.12em;margin-top:7px;text-transform:none;max-width:min(520px,88vw);margin-left:auto;margin-right:auto;line-height:1.5}
+/* V152 — o avanco deixou de ser "toque em qualquer lugar" e virou botao.
+   So aparece depois que a ultima linha do texto terminou de entrar. */
+#phase-intro-next{display:none;margin-top:16px;font-family:var(--font-d);font-size:12px;letter-spacing:.22em;color:#fff;
+  background:linear-gradient(180deg,rgba(255,96,42,.95),rgba(178,38,10,.95));border:1px solid rgba(255,186,132,.55);
+  border-radius:9px;padding:13px 30px;cursor:pointer;opacity:0;animation:loreIn .45s ease-out forwards;
+  box-shadow:0 0 24px rgba(255,84,30,.35);-webkit-tap-highlight-color:transparent}
+#phase-intro-next span{display:inline-block;margin-left:6px;font-size:10px;transform:translateY(-1px)}
+#phase-intro-next:active{transform:scale(.96)}
+#phase-intro-page{display:none;margin-top:12px;font-family:var(--font-d);font-size:9px;letter-spacing:.3em;color:rgba(255,255,255,.32)}
+/* Celular deitado: compacta tudo para o botao caber sem cortar o retrato. */
+@media (max-height:480px){
+  #phase-intro-lore{font-size:11px;line-height:1.55;margin-bottom:8px}
+  #phase-intro-next{padding:10px 24px;font-size:11px;margin-top:10px}
+  #phase-intro-page{display:none!important}
+  #phase-intro-boss-art{margin-bottom:6px}
+}
 
 /* ══ STAGE STATS ══ */
 #stage-stats-overlay{position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,.94);display:none;align-items:center;justify-content:center;padding:20px}
@@ -2616,8 +2630,8 @@ button:disabled{opacity:.4;cursor:not-allowed}
     <div class="modal-title" style="color:var(--gold)">⭐ MISSION COMPLETE</div>
     <div style="font-size:13px;color:var(--teal);margin:14px 0;line-height:1.7">
       The foundry is cold. The craters run clear.<br>
-      Mars is quiet.<br>
-      <span style="color:rgba(255,255,255,.45);font-size:11px">Three kilometers down, the drill is still turning.</span>
+      Mars is quiet for the first time in forty-seven years.<br>
+      <span style="color:rgba(255,255,255,.45);font-size:11px">Nothing on this rock built that machine.</span>
     </div>
     <div style="font-family:var(--font-d);font-size:34px;color:var(--gold)" id="victory-score">0</div>
     <div class="modal-row">
@@ -2698,7 +2712,8 @@ button:disabled{opacity:.4;cursor:not-allowed}
   <div id="phase-intro-lore"></div>
   <canvas id="phase-intro-boss-art"></canvas>
   <div id="phase-intro-boss">BOSS: IRON WARLORD</div>
-  <div id="phase-intro-skip">TAP TO CONTINUE</div>
+  <button id="phase-intro-next" type="button">NEXT <span>&#9654;</span></button>
+  <div id="phase-intro-page"></div>
 </div>
 
 <div id="stage-stats-overlay">
@@ -2999,44 +3014,62 @@ const STAGES=[
 // Texto puro, zero asset novo. O prologo abre uma unica vez (primeiro launch);
 // o cartao completo de cada fase, uma unica vez por fase. Repetiu a fase, vem a
 // versao curta de 1,8s — cutscene em loop de retry vira inimigo do jogador.
+// V152: o prologo virou duas paginas. Com o botao NEXT no lugar do "toque em
+// qualquer lugar", paginar e o gesto natural — seis linhas de uma vez viravam
+// um paredao de texto.
+// V153 — REESCRITA. Quatro coisas mudaram de proposito:
+//  1. A transmissao de 17 minutos e a FONTE de tudo que o jogo afirma saber.
+//     Antes o prologo dizia "nenhum chamado de socorro" e a Fase 1 cronometrava
+//     a queda em uma hora — ninguem podia ter cronometrado nada.
+//  2. A broca aparece UMA vez aqui, como infraestrutura banal, e some ate a
+//     Fase 3. A virada "it was never a drill" so funciona se ela tiver sido
+//     cenario ate la; antes era anunciada quatro vezes e nao revelava nada.
+//  3. O jogador ganha uma linha de identidade (a capsula).
+//  4. Cada cartao de fase abre retomando o anterior, em vez de cinco pecas
+//     soltas.
 const PROLOGUE_LORE={
-  title:'THE DEEP ANSWERED',
-  lines:[
-    'DOGELON COLONY  \u00B7  MARS  \u00B7  YEAR 47',
-    'The colony went quiet on a Tuesday.',
-    'No distress call. No wreckage. No bodies.',
-    'Only the drill, still running, three kilometers down.',
-    'Something down there answered it.',
-    'You are what answers back.'
+  pages:[
+    {title:'SEVENTEEN MINUTES',lines:[
+      'DOGELON COLONY  \u00B7  MARS  \u00B7  YEAR 47',
+      'The last transmission ran seventeen minutes.',
+      'No voices. No alarms. Only the drill, still turning',
+      'three kilometers down, and something breathing over it.'
+    ]},
+    {title:'WHAT ANSWERED',lines:[
+      'Relief took eleven weeks to reach Mars orbit.',
+      'By then the colony was transmitting again.',
+      'Not in words. Not in anything human.',
+      'One drop pod went down. You walked off it.'
+    ]}
   ]
 };
 const STAGE_LORE=[
   {
     lines:[
-      'The outpost fell in under an hour.',
-      'What holds it now came up through the drill shaft',
-      'and left the gate to the deep standing wide open.'
+      'The outpost held eleven of those seventeen minutes.',
+      'Then it stopped holding, and the ground opened.',
+      'What came up is still standing in the doorway.'
     ],
     epithet:'WARDEN OF THE GATE',
-    note:'Every orc on this rock takes his orders.'
+    note:'The horde takes his orders. He takes none.'
   },
   {
     lines:[
-      'The craters were the colony water supply.',
-      'Now the water crawls \u2014 and everything that drank it',
-      'crawls along with it.'
+      'The outpost drank from the craters. So did the colony.',
+      'Whatever is in that water was in them first \u2014',
+      'and it is still learning what a body can do.'
     ],
-    epithet:'THE THING IN THE WATER',
-    note:'Not a general. A weapon the others point.'
+    epithet:'THE COLONY THAT CAME BACK',
+    note:'It has four hundred people in it. It remembers all of them.'
   },
   {
     lines:[
-      'The drill was never a drill.',
-      'It was a foundry: buried, patient, stamping out',
-      'an army one press cycle at a time.'
+      'Follow the water upstream and it comes from below,',
+      'from a machine the colony logged as a drill',
+      'for forty-seven years. It was never a drill.'
     ],
     epithet:'MASTER OF THE FOUNDRY',
-    note:'Kill him and the line stops. Nothing else will.'
+    note:'The line has been running since before the colony landed.'
   }
 ];
 
@@ -13870,7 +13903,7 @@ function setPlayerName(){
 // ── PHASE INTRO / LORE (V150) ──
 // Fila de cartoes desenhada no mesmo overlay #phase-intro. Cada cartao tem seu
 // proprio tempo; qualquer toque ou tecla pula para o proximo.
-let _loreCards=[],_loreTimer=null,_loreBound=false;
+let _loreCards=[],_loreTimer=null,_loreBound=false,_loreRevealTimer=null;
 
 // ── V150 — RETRATO ANIMADO DO CHEFE NO INTRO ──
 // Reaproveita o atlas que a fase JA vai carregar (applyBossSpriteBudget roda
@@ -13957,7 +13990,10 @@ function _introArtStart(stageIdx){
   if(!def)return _introArtStop();
   const dpr=Math.min(window.devicePixelRatio||1,2);
   // V151b: 34% da altura da tela (era 20%), teto 230px (era 132).
-  const h=Math.max(110,Math.min(230,Math.round((window.innerHeight||400)*0.34)));
+  // V152: o botao NEXT come ~60px de coluna. Em celular deitado (tela baixa)
+  // o retrato cede para 26%, senao a pilha estoura por baixo.
+  const vh=window.innerHeight||400;
+  const h=Math.max(96,Math.min(230,Math.round(vh*(vh<=480?0.26:0.34))));
   const w=Math.round(h*1.8);
   cv.style.display='block';cv.style.width=w+'px';cv.style.height=h+'px';
   cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);
@@ -13979,7 +14015,8 @@ function _loreRender(card){
   const nmEl=document.getElementById('phase-intro-name');
   const loEl=document.getElementById('phase-intro-lore');
   const boEl=document.getElementById('phase-intro-boss');
-  const skEl=document.getElementById('phase-intro-skip');
+  const nxEl=document.getElementById('phase-intro-next');
+  const pgEl=document.getElementById('phase-intro-page');
   if(stEl){stEl.style.display=card.stage?'block':'none';if(card.stage)stEl.textContent=card.stage;}
   if(nmEl)nmEl.textContent=card.title||'';
   if(loEl){
@@ -13995,29 +14032,56 @@ function _loreRender(card){
       boEl.innerHTML=card.boss+(card.bossNote?`<span class="ep">${card.bossNote}</span>`:'');
     }else{boEl.style.display='none';boEl.innerHTML='';}
   }
-  if(skEl)skEl.style.display=card.skip?'block':'none';
+  // O botao so nasce quando a ultima linha acabou de entrar — antes disso
+  // clicar seria pular um texto que o jogador nem viu.
+  clearTimeout(_loreRevealTimer);_loreRevealTimer=null;
+  if(nxEl){
+    nxEl.style.display='none';
+    if(card.next){
+      nxEl.innerHTML=(card.last?'START':'NEXT')+' <span>&#9654;</span>';
+      const n=(card.lines&&card.lines.length)||0;
+      const wait=Math.round((0.30+Math.max(0,n-1)*0.42+0.55)*1000);
+      _loreRevealTimer=setTimeout(()=>{
+        nxEl.style.display='inline-block';
+        nxEl.style.animation='none';void nxEl.offsetWidth;nxEl.style.animation='';
+      },wait);
+    }
+  }
+  if(pgEl){
+    if(card.page){pgEl.style.display='block';pgEl.textContent=card.page;}
+    else{pgEl.style.display='none';pgEl.textContent='';}
+  }
   if(Number.isFinite(card.art))_introArtStart(card.art); else _introArtStop();
 }
 
 function _loreNext(){
   clearTimeout(_loreTimer);_loreTimer=null;
+  clearTimeout(_loreRevealTimer);_loreRevealTimer=null;
   const ov=document.getElementById('phase-intro');
   if(!ov){loreHold=false;return;}
   const card=_loreCards.shift();
-  if(!card){ov.classList.remove('show');loreHold=false;_introArtStop();return;}
+  if(!card){
+    ov.classList.remove('show');loreHold=false;_introArtStop();
+    const nx=document.getElementById('phase-intro-next');if(nx)nx.style.display='none';
+    return;
+  }
   ov.classList.remove('show');
   void ov.offsetWidth;                 // reinicia o fade entre cartoes
   _loreRender(card);
   ov.classList.add('show');
-  _loreTimer=setTimeout(_loreNext,card.ms);
+  // Cartao narrativo espera o botao (ms=0). Fallback de 45s so para nunca
+  // deixar a partida congelada se algo der errado na revelacao.
+  _loreTimer=setTimeout(_loreNext,card.ms>0?card.ms:45000);
 }
 
 // Aborta a sequencia (voltar ao menu com cartao aberto nao pode deixar
 // loreHold ligado, senao a proxima partida nasce congelada).
 function loreAbort(){
   clearTimeout(_loreTimer);_loreTimer=null;
+  clearTimeout(_loreRevealTimer);_loreRevealTimer=null;
   _loreCards=[];loreHold=false;
   _introArtStop();
+  const nx=document.getElementById('phase-intro-next');if(nx)nx.style.display='none';
   const ov=document.getElementById('phase-intro');
   if(ov)ov.classList.remove('show');
 }
@@ -14026,16 +14090,28 @@ function _loreBind(){
   if(_loreBound)return;_loreBound=true;
   const ov=document.getElementById('phase-intro');
   if(!ov)return;
+  // V152: avancar deixou de ser "toque em qualquer lugar". So o botao NEXT
+  // avanca — e ele so existe depois que o texto terminou de aparecer.
+  const armed=()=>{
+    const nx=document.getElementById('phase-intro-next');
+    return ov.classList.contains('show')&&nx&&nx.style.display!=='none';
+  };
   const go=(e)=>{
-    if(!ov.classList.contains('show'))return;
+    if(!armed())return;
     e.preventDefault();e.stopPropagation();_loreNext();
   };
-  ov.addEventListener('mousedown',go);
-  ov.addEventListener('touchstart',go,{passive:false});
-  // Captura para o pulo/pause nao dispararem junto com o skip.
+  const nx=document.getElementById('phase-intro-next');
+  if(nx){
+    nx.addEventListener('click',go);
+    nx.addEventListener('touchstart',go,{passive:false});
+  }
+  // Captura para o pulo/pause nao dispararem junto com o avanco. Toda tecla
+  // e engolida enquanto o cartao esta aberto, mas so avanca com o botao ja
+  // na tela — assim ninguem pula um texto que ainda esta entrando.
   window.addEventListener('keydown',(e)=>{
     if(!ov.classList.contains('show'))return;
-    e.preventDefault();e.stopPropagation();_loreNext();
+    e.preventDefault();e.stopPropagation();
+    if(armed())_loreNext();
   },true);
 }
 
@@ -14049,18 +14125,25 @@ function showPhaseIntro(stageName,bossName){
   const firstVisit=!loreSeen['s'+idx];
   _loreCards=[];
   if(idx===0&&!loreSeen.pro){
-    _loreCards.push({title:PROLOGUE_LORE.title,lines:PROLOGUE_LORE.lines,skip:true,ms:8600});
+    for(const pg of PROLOGUE_LORE.pages){
+      _loreCards.push({title:pg.title,lines:pg.lines,next:true,ms:0});
+    }
     loreSeen.pro=1;
   }
   if(firstVisit&&lore){
     _loreCards.push({
       stage:`STAGE ${idx+1}`,title:stageName,lines:lore.lines,art:idx,
       boss:'BOSS: '+bossName,bossNote:lore.epithet+'  \u00B7  '+lore.note,
-      skip:true,ms:6800
+      next:true,ms:0
     });
   }else{
-    _loreCards.push({stage:`STAGE ${idx+1}`,title:stageName,art:idx,boss:'BOSS: '+bossName,skip:false,ms:1800});
+    // Replay: o jogador ja leu tudo. Cartao curto, sem botao, 1,8s e joga.
+    _loreCards.push({stage:`STAGE ${idx+1}`,title:stageName,art:idx,boss:'BOSS: '+bossName,ms:1800});
   }
+  // Contador "1 / 3" e rotulo START no ultimo cartao narrativo.
+  const narr=_loreCards.filter(c=>c.next);
+  narr.forEach((c,i)=>{c.page=(i+1)+' / '+narr.length;c.last=(i===narr.length-1);});
+  if(narr.length===1)narr[0].page='';
   loreSeen['s'+idx]=1;
   try{Save.save();}catch(e){}
   loreHold=true;
