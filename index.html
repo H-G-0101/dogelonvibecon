@@ -704,9 +704,17 @@ button:disabled{opacity:.4;cursor:not-allowed}
 #phase-intro.show{display:flex;animation:fadeIn .3s}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 #phase-intro-stage{font-family:var(--font-d);font-size:14px;color:var(--gold);letter-spacing:.3em;margin-bottom:8px}
-#phase-intro-name{font-family:var(--font-d);font-size:38px;color:var(--mars);letter-spacing:.15em;text-shadow:var(--glow-mars);margin-bottom:14px;text-align:center;animation:slideIn .8s ease-out}
+#phase-intro-name{font-family:var(--font-d);font-size:clamp(22px,4.6vh,38px);color:var(--mars);letter-spacing:.15em;text-shadow:var(--glow-mars);margin-bottom:14px;text-align:center;animation:slideIn .8s ease-out}
 @keyframes slideIn{from{opacity:0;transform:translateX(-40px)}to{opacity:1;transform:translateX(0)}}
-#phase-intro-boss{font-family:var(--font-d);font-size:13px;color:var(--teal);letter-spacing:.2em}
+#phase-intro-boss{font-family:var(--font-d);font-size:13px;color:var(--teal);letter-spacing:.2em;text-align:center}
+/* V150 — LORE: linhas de historia, epiteto do chefe e dica de skip. */
+#phase-intro-lore{max-width:min(560px,88vw);text-align:center;font-size:13px;line-height:1.75;color:rgba(255,255,255,.86);margin:0 0 12px;letter-spacing:.03em;padding:0 16px}
+#phase-intro-boss-art{display:none;margin:0 auto 8px;opacity:0;animation:loreIn .6s ease-out .15s forwards;filter:drop-shadow(0 0 18px rgba(255,60,20,.35))}
+#phase-intro-lore .ln{opacity:0;animation:loreIn .55s ease-out forwards}
+@keyframes loreIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+#phase-intro-boss .ep{display:block;font-family:var(--font-b,inherit);font-size:10px;color:rgba(255,255,255,.5);letter-spacing:.12em;margin-top:7px;text-transform:none}
+#phase-intro-skip{margin-top:18px;font-family:var(--font-d);font-size:10px;letter-spacing:.25em;color:rgba(255,255,255,.45);animation:skipPulse 1.6s ease-in-out infinite}
+@keyframes skipPulse{0%,100%{opacity:.3}50%{opacity:.9}}
 
 /* ══ STAGE STATS ══ */
 #stage-stats-overlay{position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,.94);display:none;align-items:center;justify-content:center;padding:20px}
@@ -2606,7 +2614,11 @@ button:disabled{opacity:.4;cursor:not-allowed}
 <div class="modal-overlay" id="victory-modal">
   <div class="modal-box" style="text-align:center;max-width:420px">
     <div class="modal-title" style="color:var(--gold)">⭐ MISSION COMPLETE</div>
-    <div style="font-size:14px;color:var(--teal);margin:14px 0">Mars has been liberated.</div>
+    <div style="font-size:13px;color:var(--teal);margin:14px 0;line-height:1.7">
+      The foundry is cold. The craters run clear.<br>
+      Mars is quiet.<br>
+      <span style="color:rgba(255,255,255,.45);font-size:11px">Three kilometers down, the drill is still turning.</span>
+    </div>
     <div style="font-family:var(--font-d);font-size:34px;color:var(--gold)" id="victory-score">0</div>
     <div class="modal-row">
       <button class="modal-btn primary" id="btn-victory-menu">MAIN MENU</button>
@@ -2683,7 +2695,10 @@ button:disabled{opacity:.4;cursor:not-allowed}
 <div id="phase-intro">
   <div id="phase-intro-stage">STAGE 1</div>
   <div id="phase-intro-name">MARS OUTPOST</div>
+  <div id="phase-intro-lore"></div>
+  <canvas id="phase-intro-boss-art"></canvas>
   <div id="phase-intro-boss">BOSS: IRON WARLORD</div>
+  <div id="phase-intro-skip">TAP TO CONTINUE</div>
 </div>
 
 <div id="stage-stats-overlay">
@@ -2855,6 +2870,10 @@ let achievementsUnlocked=[];
 let lastLoginDate='',loginStreak=0,maxLoginStreak=0;
 let streakFreezes=0;            // #4: emergency freeze (1 awarded every 7 days, max 3)
 let isFirstLaunch=true;         // #1+#2: triggers tutorial + welcome bonus
+// V150 — LORE: quais cartoes de historia ja foram vistos ({pro:1, s0:1, ...}).
+// A versao completa so aparece na PRIMEIRA visita a fase; no retry vem a curta.
+let loreSeen={};
+let loreHold=false;             // congela o loop enquanto o cartao esta na tela
 let tutorialStep=0;             // 0=not started; 1-4=in progress; 99=done
 let firstStageDone=false;       // gate for post-tutorial bonuses
 let welcomeBonusGiven=false;    // ensures FTUE gifts only once
@@ -2976,6 +2995,51 @@ const STAGES=[
 //  {name:'LUNAR BASE',    theme:'moon',    boss:'MOON COMMANDANT',     bossType:'asteroid', length:10000},
 //  {name:'ALIEN NEXUS',   theme:'alien',   boss:'ALIEN OVERLORD PRIME',bossType:'eye',      length:11000}
 
+// ══ V150 — LORE DA CAMPANHA ══
+// Texto puro, zero asset novo. O prologo abre uma unica vez (primeiro launch);
+// o cartao completo de cada fase, uma unica vez por fase. Repetiu a fase, vem a
+// versao curta de 1,8s — cutscene em loop de retry vira inimigo do jogador.
+const PROLOGUE_LORE={
+  title:'THE DEEP ANSWERED',
+  lines:[
+    'DOGELON COLONY  \u00B7  MARS  \u00B7  YEAR 47',
+    'The colony went quiet on a Tuesday.',
+    'No distress call. No wreckage. No bodies.',
+    'Only the drill, still running, three kilometers down.',
+    'Something down there answered it.',
+    'You are what answers back.'
+  ]
+};
+const STAGE_LORE=[
+  {
+    lines:[
+      'The outpost fell in under an hour.',
+      'What holds it now came up through the drill shaft',
+      'and left the gate to the deep standing wide open.'
+    ],
+    epithet:'WARDEN OF THE GATE',
+    note:'Every orc on this rock takes his orders.'
+  },
+  {
+    lines:[
+      'The craters were the colony water supply.',
+      'Now the water crawls \u2014 and everything that drank it',
+      'crawls along with it.'
+    ],
+    epithet:'THE THING IN THE WATER',
+    note:'Not a general. A weapon the others point.'
+  },
+  {
+    lines:[
+      'The drill was never a drill.',
+      'It was a foundry: buried, patient, stamping out',
+      'an army one press cycle at a time.'
+    ],
+    epithet:'MASTER OF THE FOUNDRY',
+    note:'Kill him and the line stops. Nothing else will.'
+  }
+];
+
 // ── UTILITIES ──
 function todayKey(){return new Date().toISOString().slice(0,10);}
 function weekKey(){const d=new Date();const yr=d.getFullYear();const wk=Math.ceil((((d-new Date(yr,0,1))/86400000)+new Date(yr,0,1).getDay()+1)/7);return yr+'-W'+wk;}
@@ -3002,6 +3066,7 @@ const Save={
       loginStreak=parseInt(localStorage.getItem(this.prefix+'lstr'))||0;
       streakFreezes=parseInt(localStorage.getItem(this.prefix+'sfrz'))||0;
       isFirstLaunch=localStorage.getItem(this.prefix+'fl')==='1'?false:true;
+      loreSeen=JSON.parse(localStorage.getItem(this.prefix+'lore'))||{};
       tutorialStep=parseInt(localStorage.getItem(this.prefix+'tut'))||0;
       firstStageDone=localStorage.getItem(this.prefix+'fsd')==='1';
       welcomeBonusGiven=localStorage.getItem(this.prefix+'wbg')==='1';
@@ -3050,6 +3115,7 @@ const Save={
       ls.setItem(this.prefix+'lstr',loginStreak);
       ls.setItem(this.prefix+'sfrz',streakFreezes);
       ls.setItem(this.prefix+'fl','1'); // any save means we've launched
+      ls.setItem(this.prefix+'lore',JSON.stringify(loreSeen));
       ls.setItem(this.prefix+'tut',tutorialStep);
       ls.setItem(this.prefix+'fsd',firstStageDone?'1':'0');
       ls.setItem(this.prefix+'wbg',welcomeBonusGiven?'1':'0');
@@ -3221,6 +3287,59 @@ const Audio={
       g.gain.exponentialRampToValueAtTime(0.001,this.ctx.currentTime+d);
       o.connect(g);g.connect(this.sfxGain);
       o.start();o.stop(this.ctx.currentTime+d);}catch(e){}
+  },
+  // ══════════ V149 — SOM DE CARGA (estilo Mega Man X) ══════════
+  // O `beep` é disparo único e não serve aqui: enquanto o botão está
+  // segurado o som precisa SUSTENTAR e subir de altura.
+  // A montagem é: dois osciladores graves (um serrote e um quadrado uma
+  // oitava acima) somados, com um LFO batendo no volume para dar o
+  // pulsar característico. A frequência sobe junto com a carga.
+  _chg:null,
+  chargeStart(){
+    if(!this.ready||this._chg)return;
+    try{
+      const c=this.ctx,t=c.currentTime;
+      const g=c.createGain();
+      g.gain.setValueAtTime(0,t);
+      g.gain.linearRampToValueAtTime(0.055,t+0.08);   // sobe suave, não estala
+      const o1=c.createOscillator();o1.type='sawtooth';o1.frequency.setValueAtTime(70,t);
+      const o2=c.createOscillator();o2.type='square';  o2.frequency.setValueAtTime(140,t);
+      const g2=c.createGain();g2.gain.value=0.35;      // o agudo entra discreto
+      // Pulsar: um LFO de ~11Hz modulando o ganho é o que dá a textura de
+      // "carregando" em vez de um zumbido parado.
+      const lfo=c.createOscillator();lfo.type='sine';lfo.frequency.setValueAtTime(11,t);
+      const lfoG=c.createGain();lfoG.gain.value=0.022;
+      lfo.connect(lfoG);lfoG.connect(g.gain);
+      o1.connect(g);o2.connect(g2);g2.connect(g);
+      g.connect(this.sfxGain);
+      o1.start();o2.start();lfo.start();
+      this._chg={g,o1,o2,lfo,lfoG,g2};
+    }catch(e){}
+  },
+  // p = 0..1 (fração da carga). Chamado por frame enquanto o botão está preso.
+  chargeUpdate(p,pronto){
+    const c=this._chg;if(!c||!this.ready)return;
+    try{
+      const t=this.ctx.currentTime;
+      // 70 -> 190Hz durante a carga; ao completar, sobe mais um degrau e o
+      // pulsar acelera, para o "pronto" ser audível sem precisar de bipe.
+      const f=pronto?235:(70+120*p);
+      c.o1.frequency.setTargetAtTime(f,t,0.05);
+      c.o2.frequency.setTargetAtTime(f*2,t,0.05);
+      c.lfo.frequency.setTargetAtTime(pronto?20:(9+7*p),t,0.05);
+      c.lfoG.gain.setTargetAtTime(pronto?0.030:0.022,t,0.05);
+    }catch(e){}
+  },
+  chargeStop(){
+    const c=this._chg;if(!c)return;
+    this._chg=null;
+    try{
+      const t=this.ctx.currentTime;
+      c.g.gain.cancelScheduledValues(t);
+      c.g.gain.setValueAtTime(c.g.gain.value,t);
+      c.g.gain.exponentialRampToValueAtTime(0.001,t+0.06);
+      c.o1.stop(t+0.08);c.o2.stop(t+0.08);c.lfo.stop(t+0.08);
+    }catch(e){}
   },
   noise(d,v=0.1){
     if(!this.ready)return;
@@ -4397,9 +4516,15 @@ class Player{
         // Segurando: acumula carga em vez de repetir o tiro.
         const was=this.chargeT>=CHARGE.time;
         this.chargeT+=dt*60;
-        if(!was&&this.chargeT>=CHARGE.time){
-          // Momento em que fica pronto: som curto + vibração + o botão
-          // mobile acende, para o aviso não depender só do brilho no cano.
+        // V149: o som de carga começa no primeiro frame de espera e
+        // acompanha a fração carregada, subindo de 70 para 190Hz.
+        Audio.chargeStart();
+        const pronto=this.chargeT>=CHARGE.time;
+        Audio.chargeUpdate(Math.min(1,this.chargeT/CHARGE.time),pronto);
+        if(!was&&pronto){
+          // Momento em que fica pronto: o zumbido dá um degrau e passa a
+          // pulsar mais rápido; o bipe curto continua como confirmação, e o
+          // botão mobile acende.
           Audio.beep(660,0.09,'square',0.10);navVibrate(25);
           const tb=document.getElementById('tb-shoot');if(tb)tb.classList.add('charged');
         }
@@ -4411,6 +4536,7 @@ class Player{
       // Limpa aqui também: soltando pelo TECLADO o handler de touch nunca
       // roda, e o botão mobile ficaria aceso para sempre num setup híbrido.
       if(this.shootHeld){const tb=document.getElementById('tb-shoot');if(tb)tb.classList.remove('charged');}
+      Audio.chargeStop();   // V149 — solta o botão, corta o zumbido
       this.shootHeld=false;this.chargeT=0;
     }
     // Melee
@@ -4641,6 +4767,7 @@ class Player{
       // conta a morte inteira — somar um estouro genérico por cima
       // esconderia justamente os frames que você mandou.
       this.active=false;
+      Audio.chargeStop();   // V149 — morrer segurando o botão deixaria o zumbido tocando
       spawnDeathFx(this.x,this.y,this.dir,this.w,this.h);
     }
   }
@@ -8709,6 +8836,7 @@ function loadStage(idx,fromCheckpoint){
   arenaWall=null;cameraPan=null;
   cameraLocked=false;
   playerLocked=false;   // V119: nunca herdar a trava de uma tentativa anterior
+  Audio.chargeStop();   // V149: nem o zumbido de carga de uma fase anterior
   stageEnding=false;gameOverShown=false;
   const LV=LEVELS[idx]||null;
   stageWidth=LV?LV.width:(st.length||3000);
@@ -9749,6 +9877,9 @@ function gameLoop(now){
   requestAnimationFrame(gameLoop);
   if(!gameRunning){lastTime=now;return;}
   if(paused){lastTime=now;return;}
+  // V150: cartao de historia na tela congela a partida. Antes o intro era so
+  // um overlay e o jogo rodava atras dele — dava pra tomar dano sem ver nada.
+  if(loreHold){lastTime=now;return;}
   const realDt=Math.min(0.05,(now-lastTime)/1000);
   lastTime=now;
   fpsFrames++;fpsTime+=realDt;
@@ -13736,15 +13867,204 @@ function setPlayerName(){
 }
 
 
-// ── PHASE INTRO ──
+// ── PHASE INTRO / LORE (V150) ──
+// Fila de cartoes desenhada no mesmo overlay #phase-intro. Cada cartao tem seu
+// proprio tempo; qualquer toque ou tecla pula para o proximo.
+let _loreCards=[],_loreTimer=null,_loreBound=false;
+
+// ── V150 — RETRATO ANIMADO DO CHEFE NO INTRO ──
+// Reaproveita o atlas que a fase JA vai carregar (applyBossSpriteBudget roda
+// no comeco do loadStage, bem antes deste cartao). Custo de memoria: zero a
+// mais. E o cartao ainda serve de tela de carga: o dragao sao 22 MB de bitmap
+// depois de decodificado, e agora esse tempo passa atras da historia em vez
+// de engasgar o primeiro segundo de jogo.
+const INTRO_BOSS_ART={
+  tank:     {img:()=>demonImg,  ready:()=>demonReady,  atlas:()=>DEMON_ATLAS,  hold:6, zoom:1.00},
+  shoggoth: {img:()=>shogImg,   ready:()=>shogReady,   atlas:()=>SHOG_ATLAS,   hold:7, zoom:1.00},
+  dragon:   {img:()=>dragonImg, ready:()=>dragonReady, atlas:()=>DRAGON_ATLAS, hold:4, zoom:1.00}
+};
+let _introArtCv=null,_introArtDef=null,_introArtKey='',_introArtT=0,_introArtRaf=0;
+
+// V151b — RECORTE REAL DO SPRITE.
+// Antes o retrato usava a CELULA inteira do atlas, e a celula e quase toda
+// transparente: a do demonio tem 160px de altura para um corpo de ~105px, ou
+// seja, 34% do quadro era ar. Aumentar a caixa aumentava o ar junto. Aqui a
+// gente mede uma vez os limites opacos da animacao idle (uniao de todos os
+// frames, para o sprite nao pular entre eles) e passa a desenhar so isso.
+// Resultado: o chefe ocupa a caixa toda e os tres ficam do mesmo tamanho
+// aparente sem zoom manual. Custo: um getImageData por frame, UMA vez por
+// chefe — os atlas sao data-URI, entao nao tem taint de canvas.
+const _introArtBBox={};
+function _introArtBounds(key,def){
+  if(_introArtBBox[key])return _introArtBBox[key];
+  const A=def.atlas();
+  const list=(A.anims&&A.anims.idle)||[0];
+  const off=document.createElement('canvas');
+  off.width=A.cw;off.height=A.ch;
+  let oc;
+  try{oc=off.getContext('2d',{willReadFrequently:true});}catch(e){oc=off.getContext('2d');}
+  if(!oc)return null;
+  let x0=A.cw,y0=A.ch,x1=-1,y1=-1;
+  for(const f of list){
+    oc.clearRect(0,0,A.cw,A.ch);
+    oc.drawImage(def.img(),(f%A.cols)*A.cw,Math.floor(f/A.cols)*A.ch,A.cw,A.ch,0,0,A.cw,A.ch);
+    let d;
+    try{d=oc.getImageData(0,0,A.cw,A.ch).data;}catch(e){return null;}
+    for(let y=0;y<A.ch;y++){
+      const row=y*A.cw;
+      for(let x=0;x<A.cw;x++){
+        if(d[(row+x)*4+3]>10){
+          if(x<x0)x0=x; if(x>x1)x1=x;
+          if(y<y0)y0=y; if(y>y1)y1=y;
+        }
+      }
+    }
+  }
+  const bb=(x1>=x0&&y1>=y0)?{x:x0,y:y0,w:x1-x0+1,h:y1-y0+1}:{x:0,y:0,w:A.cw,h:A.ch};
+  _introArtBBox[key]=bb;
+  return bb;
+}
+
+function _introArtFrame(){
+  _introArtRaf=requestAnimationFrame(_introArtFrame);
+  const cv=_introArtCv,def=_introArtDef;
+  if(!cv||!def)return;
+  const c=cv.getContext('2d');
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  c.setTransform(dpr,0,0,dpr,0,0);
+  const W=cv.width/dpr,H=cv.height/dpr;
+  c.clearRect(0,0,W,H);
+  if(!def.ready())return;              // atlas ainda decodificando: so espera
+  const A=def.atlas();
+  const list=(A.anims&&A.anims.idle)||[0];
+  const cw=A.cw,ch=A.ch,cols=A.cols;
+  const bb=_introArtBounds(_introArtKey,def)||{x:0,y:0,w:cw,h:ch};
+  const f=list[Math.floor(_introArtT/def.hold)%list.length];
+  const sx=(f%cols)*cw+bb.x, sy=Math.floor(f/cols)*ch+bb.y;
+  const sc=Math.min((W*.98)/bb.w,(H-12)/bb.h)*def.zoom;
+  const dw=bb.w*sc,dh=bb.h*sc;
+  c.save();c.globalAlpha=.4;c.fillStyle='#000';
+  c.beginPath();c.ellipse(W/2,H-6,Math.max(26,dw*.32),7,0,0,Math.PI*2);c.fill();c.restore();
+  c.drawImage(def.img(),sx,sy,bb.w,bb.h,(W-dw)/2,H-dh-5,dw,dh);
+  _introArtT++;
+}
+
+function _introArtStart(stageIdx){
+  const cv=document.getElementById('phase-intro-boss-art');
+  if(!cv)return _introArtStop();
+  const bt=(STAGES[stageIdx]&&STAGES[stageIdx].bossType)||'tank';
+  const def=INTRO_BOSS_ART[bt];
+  if(!def)return _introArtStop();
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  // V151b: 34% da altura da tela (era 20%), teto 230px (era 132).
+  const h=Math.max(110,Math.min(230,Math.round((window.innerHeight||400)*0.34)));
+  const w=Math.round(h*1.8);
+  cv.style.display='block';cv.style.width=w+'px';cv.style.height=h+'px';
+  cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);
+  cv.style.animation='none';void cv.offsetWidth;cv.style.animation='';  // reinicia o fade
+  _introArtCv=cv;_introArtDef=def;_introArtKey=bt;_introArtT=0;
+  cancelAnimationFrame(_introArtRaf);_introArtRaf=0;
+  _introArtFrame();
+}
+
+function _introArtStop(){
+  if(_introArtRaf)cancelAnimationFrame(_introArtRaf);
+  _introArtRaf=0;_introArtDef=null;_introArtCv=null;
+  const cv=document.getElementById('phase-intro-boss-art');
+  if(cv)cv.style.display='none';
+}
+
+function _loreRender(card){
+  const stEl=document.getElementById('phase-intro-stage');
+  const nmEl=document.getElementById('phase-intro-name');
+  const loEl=document.getElementById('phase-intro-lore');
+  const boEl=document.getElementById('phase-intro-boss');
+  const skEl=document.getElementById('phase-intro-skip');
+  if(stEl){stEl.style.display=card.stage?'block':'none';if(card.stage)stEl.textContent=card.stage;}
+  if(nmEl)nmEl.textContent=card.title||'';
+  if(loEl){
+    if(card.lines&&card.lines.length){
+      loEl.style.display='block';
+      loEl.innerHTML=card.lines.map((t,i)=>
+        `<div class="ln" style="animation-delay:${(0.30+i*0.42).toFixed(2)}s">${t}</div>`).join('');
+    }else{loEl.style.display='none';loEl.innerHTML='';}
+  }
+  if(boEl){
+    if(card.boss){
+      boEl.style.display='block';
+      boEl.innerHTML=card.boss+(card.bossNote?`<span class="ep">${card.bossNote}</span>`:'');
+    }else{boEl.style.display='none';boEl.innerHTML='';}
+  }
+  if(skEl)skEl.style.display=card.skip?'block':'none';
+  if(Number.isFinite(card.art))_introArtStart(card.art); else _introArtStop();
+}
+
+function _loreNext(){
+  clearTimeout(_loreTimer);_loreTimer=null;
+  const ov=document.getElementById('phase-intro');
+  if(!ov){loreHold=false;return;}
+  const card=_loreCards.shift();
+  if(!card){ov.classList.remove('show');loreHold=false;_introArtStop();return;}
+  ov.classList.remove('show');
+  void ov.offsetWidth;                 // reinicia o fade entre cartoes
+  _loreRender(card);
+  ov.classList.add('show');
+  _loreTimer=setTimeout(_loreNext,card.ms);
+}
+
+// Aborta a sequencia (voltar ao menu com cartao aberto nao pode deixar
+// loreHold ligado, senao a proxima partida nasce congelada).
+function loreAbort(){
+  clearTimeout(_loreTimer);_loreTimer=null;
+  _loreCards=[];loreHold=false;
+  _introArtStop();
+  const ov=document.getElementById('phase-intro');
+  if(ov)ov.classList.remove('show');
+}
+
+function _loreBind(){
+  if(_loreBound)return;_loreBound=true;
+  const ov=document.getElementById('phase-intro');
+  if(!ov)return;
+  const go=(e)=>{
+    if(!ov.classList.contains('show'))return;
+    e.preventDefault();e.stopPropagation();_loreNext();
+  };
+  ov.addEventListener('mousedown',go);
+  ov.addEventListener('touchstart',go,{passive:false});
+  // Captura para o pulo/pause nao dispararem junto com o skip.
+  window.addEventListener('keydown',(e)=>{
+    if(!ov.classList.contains('show'))return;
+    e.preventDefault();e.stopPropagation();_loreNext();
+  },true);
+}
+
 function showPhaseIntro(stageName,bossName){
   const ov=document.getElementById('phase-intro');
   if(!ov)return;
-  document.getElementById('phase-intro-stage').textContent=`STAGE ${currentStage+1}`;
-  document.getElementById('phase-intro-name').textContent=stageName;
-  document.getElementById('phase-intro-boss').textContent='BOSS: '+bossName;
-  ov.classList.add('show');
-  setTimeout(()=>ov.classList.remove('show'),2200);
+  _loreBind();
+  clearTimeout(_loreTimer);_loreTimer=null;
+  const idx=currentStage;
+  const lore=STAGE_LORE[idx]||null;
+  const firstVisit=!loreSeen['s'+idx];
+  _loreCards=[];
+  if(idx===0&&!loreSeen.pro){
+    _loreCards.push({title:PROLOGUE_LORE.title,lines:PROLOGUE_LORE.lines,skip:true,ms:8600});
+    loreSeen.pro=1;
+  }
+  if(firstVisit&&lore){
+    _loreCards.push({
+      stage:`STAGE ${idx+1}`,title:stageName,lines:lore.lines,art:idx,
+      boss:'BOSS: '+bossName,bossNote:lore.epithet+'  \u00B7  '+lore.note,
+      skip:true,ms:6800
+    });
+  }else{
+    _loreCards.push({stage:`STAGE ${idx+1}`,title:stageName,art:idx,boss:'BOSS: '+bossName,skip:false,ms:1800});
+  }
+  loreSeen['s'+idx]=1;
+  try{Save.save();}catch(e){}
+  loreHold=true;
+  _loreNext();
 }
 
 // ── HUD ──
@@ -14502,6 +14822,7 @@ function returnToMenu(){
   document.getElementById('victory-modal').classList.remove('open');
   document.getElementById('stage-stats-overlay').classList.remove('show');
   paused=false;
+  loreAbort();                          // V150
   updateMenuChips();buildStagePicker();
   // HOME THEME: volta somente depois que a Home reaparece.
   Audio.startMenuMusic();
@@ -14511,7 +14832,7 @@ function togglePause(){
   paused=!paused;
   document.getElementById('pause-overlay').classList.toggle('show',paused);
   if(paused){
-    Audio.stopMusic();hideAutoAimCrosshair();
+    Audio.stopMusic();Audio.chargeStop();hideAutoAimCrosshair();   // V149
     requestAnimationFrame(()=>{applyPauseMockupV67();layoutPauseHotspotsV67();});
   }else{
     // ═══════ V131 — RETOMAR O TEMA CERTO AO SAIR DA PAUSA ═══════
