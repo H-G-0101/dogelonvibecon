@@ -734,6 +734,24 @@ button:disabled{opacity:.4;cursor:not-allowed}
    estouro branco, escurecimento progressivo e o letreiro. O escuro termina em
    .72 de preto justamente para o Stage Complete (que e preto .94) entrar por
    cima sem corte. */
+/* ══ V187 — TRAVA DE RETRATO NO CELULAR ══
+   z-index abaixo so do loading (99999): precisa cobrir menu (9999) e
+   modais (10000), senao daria para tocar em botao atras dela. */
+#rotate-gate{
+  position:fixed;inset:0;z-index:99998;display:none;
+  flex-direction:column;align-items:center;justify-content:center;gap:14px;
+  background:#07090c;color:var(--teal,#71e7ef);text-align:center;padding:24px;
+  -webkit-user-select:none;user-select:none;
+}
+body.is-mobile.is-portrait #rotate-gate{display:flex}
+#rotate-gate svg{animation:rotateGateSpin 2.4s ease-in-out infinite;opacity:.9}
+@keyframes rotateGateSpin{
+  0%,18%{transform:rotate(0deg)}
+  38%,72%{transform:rotate(-90deg)}
+  92%,100%{transform:rotate(0deg)}
+}
+#rotate-gate-title{font-family:var(--font-d);font-size:clamp(15px,4.4vw,22px);letter-spacing:.22em;color:#fff}
+#rotate-gate-text{font-size:clamp(11px,3.2vw,14px);letter-spacing:.05em;color:rgba(255,255,255,.6);max-width:280px;line-height:1.6}
 #boss-kill-fx{position:fixed;inset:0;z-index:8500;display:none;align-items:center;justify-content:center;
   pointer-events:none;background:#000;opacity:0}
 #boss-kill-fx.show{display:flex;animation:bossKillDim 1.5s cubic-bezier(.4,0,.7,1) forwards}
@@ -2671,6 +2689,21 @@ button:disabled{opacity:.4;cursor:not-allowed}
       <button class="go-v64-hotspot settings" id="btn-go-settings" aria-label="Settings"><span class="sr-only-v30">SETTINGS</span></button>
     </div>
   </div>
+</div>
+
+<!-- V187 — TRAVA DE RETRATO. So aparece em celular e so em retrato; a
+     regra vive no CSS (body.is-mobile.is-portrait), entao nao ha JS
+     decidindo a cada frame se mostra ou nao. -->
+<div id="rotate-gate">
+  <svg viewBox="0 0 64 64" width="86" height="86" aria-hidden="true">
+    <rect x="21" y="6" width="22" height="40" rx="3" fill="none" stroke="currentColor" stroke-width="2.4"/>
+    <line x1="28" y1="11" x2="36" y2="11" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+    <circle cx="32" cy="41" r="1.8" fill="currentColor"/>
+    <path d="M12 52 a20 20 0 0 0 40 0" fill="none" stroke="currentColor" stroke-width="2.4" stroke-dasharray="3 4"/>
+    <path d="M8 47 l4 6 l6 -3" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  <div id="rotate-gate-title">ROTATE YOUR DEVICE</div>
+  <div id="rotate-gate-text">This game is played in landscape.</div>
 </div>
 
 <!-- V155 — o beat de 1500ms entre a morte do chefe e o Stage Complete.
@@ -15510,8 +15543,21 @@ function isPortraitOrientation(){
   return window.innerHeight>window.innerWidth;
 }
 function checkOrientation(){
-  // Both orientations are supported; the canvas letterboxes itself via resizeGameCanvas().
-  document.body.classList.toggle('is-portrait',isPortraitOrientation());
+  // V187: o retrato deixou de ser suportado no celular. A classe is-portrait
+  // ja existia aqui e nao era usada por ninguem — agora ela e o gatilho da
+  // trava, junto com is-mobile. No PC nada muda: sem is-mobile, a regra
+  // CSS nunca casa e a trava nunca aparece, nem numa janela estreita.
+  const retrato=isPortraitOrientation();
+  document.body.classList.toggle('is-mobile',isMobileDevice());
+  document.body.classList.toggle('is-portrait',retrato);
+  if(retrato&&isMobileDevice()){
+    // A trava cobre a tela, mas o jogo continuaria rodando atras dela e o
+    // jogador tomaria dano sem ver nada. Pausa de verdade.
+    if(typeof window.joystickRelease==='function')window.joystickRelease();
+    try{if(gameRunning&&!paused&&!stageEnding&&!gameOverShown)togglePause();}catch(e){}
+  }
+  // Ao voltar para paisagem NAO despausamos: o jogador retoma quando quiser,
+  // sem ser jogado de volta na acao no meio de um giro de aparelho.
 }
 async function requestWakeLock(){
   try{
